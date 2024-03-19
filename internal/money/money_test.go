@@ -6,37 +6,41 @@ import (
 
 func TestMoneyMul(t *testing.T) {
 	tests := map[string]struct {
-		base     float64
-		mul      float64
-		expected int64
+		base      float64
+		mul       float64
+		expected  string
+		precision int
 	}{
 		"453*0.02": {
-			base:     453,
-			mul:      0.02,
-			expected: 9060000,
+			base:      453,
+			mul:       0.02,
+			expected:  "9.06",
+			precision: 2,
 		},
 		"120*0": {
 			base:     120,
 			mul:      0,
-			expected: 0,
+			expected: "0",
 		},
 		"23453*0.34592": {
-			base:     23453,
-			mul:      0.34592,
-			expected: 8112861760,
+			base:      23453,
+			mul:       0.34592,
+			expected:  "8112.86176",
+			precision: 5,
 		},
 		"4.33334*13.456": {
-			base:     4.33334,
-			mul:      13.456,
-			expected: 58309423,
+			base:      4.33334,
+			mul:       13.456,
+			expected:  "58.31",
+			precision: 2,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			actual := New(test.base).Mul(test.mul)
+			actual := New(test.base).Mul(test.mul).Format(test.precision)
 
-			if actual != Money(test.expected) {
+			if actual != test.expected {
 				t.Errorf("got %v, want %v", actual, test.expected)
 			}
 		})
@@ -45,31 +49,42 @@ func TestMoneyMul(t *testing.T) {
 
 func TestMoneyDiv(t *testing.T) {
 	tests := map[string]struct {
-		base     float64
-		div      float64
-		expected int64
+		base      float64
+		div       float64
+		expected  string
+		precision int
 	}{
 		"400/4": {
-			base:     400,
-			div:      4,
-			expected: 100000000,
+			base:      400,
+			div:       4,
+			expected:  "100.0",
+			precision: 1,
 		},
 		"763.45/0": {
-			base:     763.45,
-			div:      0,
-			expected: 763450000,
+			base:      763.45,
+			div:       0,
+			expected:  "763.45",
+			precision: 2,
 		},
 		"1567.45/3.67": {
-			base:     1567.45,
-			div:      3.67,
-			expected: 427098093,
+			base:      1567.45,
+			div:       3.67,
+			expected:  "427.098093",
+			precision: 6,
+		},
+		"-45639.56784/936.1078": {
+			base:      -45639.56784,
+			div:       936.1078,
+			expected:  "-48.755",
+			precision: 3,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			actual := New(test.base).Div(test.div)
-			if actual != Money(test.expected) {
+			actual := New(test.base).Div(test.div).Format(test.precision)
+
+			if actual != test.expected {
 				t.Errorf("got %v, want %v", actual, test.expected)
 			}
 		})
@@ -107,6 +122,45 @@ func TestMoneySub(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			actual := New(test.base).Sub(test.sub)
+
+			if actual != Money(test.expected) {
+				t.Errorf("got %v, want %v", actual, test.expected)
+			}
+		})
+	}
+}
+
+func TestMoneyAdd(t *testing.T) {
+	tests := map[string]struct {
+		base     float64
+		add      float64
+		expected int64
+	}{
+		"45+67": {
+			base:     67,
+			add:      45,
+			expected: 112000000,
+		},
+		"34+1678.68": {
+			base:     34,
+			add:      1678.68,
+			expected: 1712680000,
+		},
+		"113+0": {
+			base:     113,
+			add:      0,
+			expected: 113000000,
+		},
+		"-9067.34+45.678": {
+			base:     -9067.34,
+			add:      45.678,
+			expected: -9021662000,
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			actual := New(test.base).Add(test.add)
 
 			if actual != Money(test.expected) {
 				t.Errorf("got %v, want %v", actual, test.expected)

@@ -1,38 +1,101 @@
 package tax
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/vfc2/tax-calculator/internal/money"
 )
 
+var taxRates = IncomeTaxRates{
+	PersonalAllowance:          money.New(12570),
+	PersonalAllowanceThreshold: money.New(100000),
+	Basic: Band{
+		Min:  money.New(12571),
+		Max:  money.New(50270),
+		Rate: 0.2,
+	},
+	Higher: Band{
+		Min:  money.New(50271),
+		Max:  money.New(125140),
+		Rate: 0.4,
+	},
+	Additional: Band{
+		Min:  money.New(125141),
+		Max:  money.New(0),
+		Rate: 0.45,
+	},
+}
+
+var niRates = map[string]NationalInsuranceRates{
+	"A": {
+		Band1: Band{
+			Min:  123000000,
+			Max:  242000000,
+			Rate: 0,
+		},
+		Band2: Band{
+			Min:  242010000,
+			Max:  967000000,
+			Rate: 0.1,
+		},
+		Band3: Band{
+			Min:  967010000,
+			Rate: 0.02,
+		},
+	},
+}
+
 func TestNationalInsurance(t *testing.T) {
 	tests := map[string]struct {
-		wage     int64
-		expected string
+		income   Money
+		expected Money
 	}{
 		"NoTax": {
-			wage:     120,
-			expected: "0.00",
+			income:   money.New(120),
+			expected: 0,
 		},
 		"Mid": {
-			wage:     731,
-			expected: "48.90",
+			income:   money.New(731),
+			expected: money.New(48.9),
 		},
 		"High": {
-			wage:     1058,
-			expected: "74.32",
+			income:   money.New(1058),
+			expected: money.New(74.32),
 		},
+	}
+
+	tests_fail := map[string]struct {
+		category string
+	}{
+		"DoesntExist": {
+			category: "ZZ",
+		},
+		"Empty": {
+			category: "",
+		},
+	}
+
+	tax := TaxCalculator{
+		IncomeTaxRates:         taxRates,
+		NationalInsuranceRates: niRates,
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			v := money.New(test.wage)
-			actual := CalculateNationalInsurance(v).Format(2)
+			actual, _ := tax.calculateNationalInsurance(test.income, "A")
 
 			if actual != test.expected {
 				t.Errorf("got %v, want %v", actual, test.expected)
+			}
+		})
+	}
+
+	for name, test := range tests_fail {
+		t.Run(name, func(t *testing.T) {
+			actual, err := tax.calculateNationalInsurance(0, test.category)
+
+			if actual != 0 || err == nil {
+				t.Error("an error was expected but not returned")
 			}
 		})
 	}
@@ -40,38 +103,43 @@ func TestNationalInsurance(t *testing.T) {
 
 func TestIncomeTax(t *testing.T) {
 	tests := map[string]struct {
-		wage      int64
-		allowance int64
+		income    Money
+		allowance Money
 		expected  IncomeTaxBreakdown
 	}{
 		"NoTax": {
-			wage:      7543,
-			allowance: 12570,
-			expected:  IncomeTaxBreakdown{},
+			income:    money.New(7543),
+			allowance: money.New(12570),
+			expected: IncomeTaxBreakdown{
+				GrossIncome: money.New(7543),
+			},
 		},
 		"BasicRate": {
-			wage:      35000,
-			allowance: 12570,
+			income:    money.New(35000),
+			allowance: money.New(12570),
 			expected: IncomeTaxBreakdown{
-				BasicRate: money.New(4486),
-				Taxable:   money.New(22430),
-				Taxed:     money.New(4486),
+				GrossIncome: money.New(35000),
+				BasicRate:   money.New(4486),
+				Taxable:     money.New(22430),
+				Taxed:       money.New(4486),
 			},
 		},
 		"HigherRate": {
-			wage:      63450,
-			allowance: 12570,
+			income:    money.New(63450),
+			allowance: money.New(12570),
 			expected: IncomeTaxBreakdown{
-				BasicRate:  money.New(7540.20),
-				HigherRate: money.New(5271.60),
-				Taxable:    money.New(50880),
-				Taxed:      money.New(12811.80),
+				GrossIncome: money.New(63450),
+				BasicRate:   money.New(7540.20),
+				HigherRate:  money.New(5271.60),
+				Taxable:     money.New(50880),
+				Taxed:       money.New(12811.80),
 			},
 		},
 		"AdditionalRate": {
-			wage:      143000,
+			income:    money.New(143000),
 			allowance: 0,
 			expected: IncomeTaxBreakdown{
+				GrossIncome:    money.New(143000),
 				BasicRate:      money.New(7540.20),
 				HigherRate:     money.New(34976),
 				AdditionalRate: money.New(8036.55),
@@ -81,16 +149,15 @@ func TestIncomeTax(t *testing.T) {
 		},
 	}
 
-	taxRates := LoadTaxBands()
+	tax := TaxCalculator{
+		IncomeTaxRates:         taxRates,
+		NationalInsuranceRates: niRates,
+	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			w := money.New(test.wage)
-			a := money.New(test.allowance)
+			actual := tax.calculateIncomeTax(test.income, test.allowance)
 
-			actual := CalculateIncomeTax(w, a, taxRates)
-
-			fmt.Println(actual)
 			if actual != test.expected {
 				t.Errorf("got %v, want %v", actual, test.expected)
 			}
@@ -100,30 +167,31 @@ func TestIncomeTax(t *testing.T) {
 
 func TestTaxAllowance(t *testing.T) {
 	tests := map[string]struct {
-		wage     int64
-		expected string
+		income   Money
+		expected Money
 	}{
 		"NoAllowance": {
-			wage:     145000,
-			expected: "0.00",
+			income:   money.New(145000),
+			expected: money.New(0),
 		},
 		"FullAllowance": {
-			wage:     65000,
-			expected: "12570.00",
+			income:   money.New(65000),
+			expected: money.New(12570),
 		},
 		"PartialAllowance": {
-			wage:     112000,
-			expected: "6570.00",
+			income:   money.New(112000),
+			expected: money.New(6570),
 		},
 	}
 
-	taxRates := LoadTaxBands()
+	tax := TaxCalculator{
+		IncomeTaxRates:         taxRates,
+		NationalInsuranceRates: niRates,
+	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			v := money.New(test.wage)
-
-			actual := CalculateTaxAllowance(v, taxRates).Format(2)
+			actual := tax.calculateTaxAllowance(test.income)
 
 			if actual != test.expected {
 				t.Errorf("got %v, want %v", actual, test.expected)
@@ -132,56 +200,61 @@ func TestTaxAllowance(t *testing.T) {
 	}
 }
 
-func TestCalculateAllowanceAndTax(t *testing.T) {
+func TestTakeHome(t *testing.T) {
 	tests := map[string]struct {
-		wage     int64
-		expected IncomeTaxBreakdown
+		income           Money
+		expectedTakeHome string
+		expectedNI       string
 	}{
 		"NoTax": {
-			wage:     7543,
-			expected: IncomeTaxBreakdown{},
-		},
-		"BasicRate": {
-			wage: 35000,
-			expected: IncomeTaxBreakdown{
-				BasicRate: money.New(4486),
-				Taxable:   money.New(22430),
-				Taxed:     money.New(4486),
-			},
+			income:           money.New(7543),
+			expectedTakeHome: "7543.00",
+			expectedNI:       "0.00",
 		},
 		"HigherRate": {
-			wage: 63450,
-			expected: IncomeTaxBreakdown{
-				BasicRate:  money.New(7540.20),
-				HigherRate: money.New(5271.60),
-				Taxable:    money.New(50880),
-				Taxed:      money.New(12811.80),
-			},
-		},
-		"AdditionalRate": {
-			wage: 143000,
-			expected: IncomeTaxBreakdown{
-				BasicRate:      money.New(7540.20),
-				HigherRate:     money.New(34976),
-				AdditionalRate: money.New(8036.55),
-				Taxable:        money.New(143000),
-				Taxed:          money.New(50552.75),
-			},
+			income:           money.New(63450),
+			expectedTakeHome: "46604.88",
+			expectedNI:       "4033.32",
 		},
 	}
 
-	taxRates := LoadTaxBands()
+	tests_fail := map[string]struct {
+		niCategory string
+	}{
+		"NIDoesntExist": {
+			niCategory: "ZZ",
+		},
+		"NIEmpty": {
+			niCategory: "",
+		},
+	}
+
+	tax := TaxCalculator{
+		IncomeTaxRates:         taxRates,
+		NationalInsuranceRates: niRates,
+	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			w := money.New(test.wage)
+			actual, _ := tax.CalculateTakeHome(test.income, "A")
 
-			a := CalculateTaxAllowance(w, taxRates)
-			actual := CalculateIncomeTax(w, a, taxRates)
+			takeHome := actual.TakeHome.Format(2)
+			ni := actual.NationalInsurance.Format(2)
 
-			fmt.Println(actual)
-			if actual != test.expected {
-				t.Errorf("got %v, want %v", actual, test.expected)
+			if takeHome != test.expectedTakeHome || ni != test.expectedNI {
+				t.Errorf("got {TakeHome: %s, National Insurance: %s}, want {TakeHome: %s, National Insurance: %s}",
+					takeHome, ni, test.expectedTakeHome, test.expectedNI)
+			}
+		})
+	}
+
+	for name, test := range tests_fail {
+		t.Run(name, func(t *testing.T) {
+			actual, err := tax.CalculateTakeHome(0, test.niCategory)
+			expected := IncomeTaxBreakdown{}
+
+			if actual != expected || err == nil {
+				t.Error("an error was expected but not returned")
 			}
 		})
 	}

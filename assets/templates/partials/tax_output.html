@@ -1,0 +1,73 @@
+{{define "view"}}
+
+<nav>
+    <ul>
+        <li><h1>Results</h1></li>
+    </ul>
+    <ul>
+        <button hx-get="/inputs" hx-target="main">Return</button>
+    </ul>
+</nav>
+
+<table>
+    <thead>
+        <tr>
+            <th scope="col" style="width: 12rem;"></th>
+            <th scope="col">Yearly</th>
+            <th scope="col">Monthly</th>
+            <th scope="col">Weekly</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <th scope="row"><b>Gross Income</b></th>
+            <td>{{.GrossIncome.DisplayCurrency "£"}}</td>
+            <td>{{(.GrossIncome.Div 12).DisplayCurrency "£"}}</td>
+            <td>{{(.GrossIncome.Div 52).DisplayCurrency "£"}}</td>
+        </tr>
+        <tr>
+            <th scope="row">National Insurance</th>
+            <td>{{.NationalInsurance.DisplayCurrency "£"}}</td>
+            <td>{{(.NationalInsurance.Div 12).DisplayCurrency "£"}}</td>
+            <td>{{(.NationalInsurance.Div 52).DisplayCurrency "£"}}</td>
+        </tr>
+        <tr>
+            <th scope="row"><b>Taxable Income</b></th>
+            <td>{{.Taxable.DisplayCurrency "£"}}</td>
+            <td>{{(.Taxable.Div 12).DisplayCurrency "£"}}</td>
+            <td>{{(.Taxable.Div 52).DisplayCurrency "£"}}</td>
+        </tr>
+        <tr>
+            <th scope="row"><b>Tax</b></th>
+            <td>{{.Taxed.DisplayCurrency "£"}}</td>
+            <td>{{(.Taxed.Div 12).DisplayCurrency "£"}}</td>
+            <td>{{(.Taxed.Div 52).DisplayCurrency "£"}}</td>
+        </tr>
+        <tr>
+            <th scope="row">Basic Rate</th>
+            <td>{{.BasicRate.DisplayCurrency "£"}}</td>
+            <td>{{(.BasicRate.Div 12).DisplayCurrency "£"}}</td>
+            <td>{{(.BasicRate.Div 52).DisplayCurrency "£"}}</td>
+        </tr>
+        <tr>
+            <th scope="row">Higher Rate</th>
+            <td>{{.HigherRate.DisplayCurrency "£"}}</td>
+            <td>{{(.HigherRate.Div 12).DisplayCurrency "£"}}</td>
+            <td>{{(.HigherRate.Div 52).DisplayCurrency "£"}}</td>
+        </tr>
+        <tr>
+            <th scope="row">Additional Rate</th>
+            <td>{{.AdditionalRate.DisplayCurrency "£"}}</td>
+            <td>{{(.AdditionalRate.Div 12).DisplayCurrency "£"}}</td>
+            <td>{{(.AdditionalRate.Div 52).DisplayCurrency "£"}}</td>
+        </tr>
+        <tr>
+            <th scope="row"><b>Take Home</b></th>
+            <td>{{.TakeHome.DisplayCurrency "£"}}</td>
+            <td>{{(.TakeHome.Div 12).DisplayCurrency "£"}}</td>
+            <td>{{(.TakeHome.Div 52).DisplayCurrency "£"}}</td>
+        </tr>
+    </tbody>
+</table>
+
+{{end}}

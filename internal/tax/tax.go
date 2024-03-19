@@ -1,12 +1,14 @@
 package tax
 
 import (
+	"fmt"
+
 	"github.com/vfc2/tax-calculator/internal/money"
 )
 
 type Money = money.Money
 
-type TaxBand struct {
+type Band struct {
 	Min  Money
 	Max  Money
 	Rate float64
@@ -15,67 +17,65 @@ type TaxBand struct {
 type IncomeTaxRates struct {
 	PersonalAllowance          Money
 	PersonalAllowanceThreshold Money
-	Basic                      TaxBand
-	Higher                     TaxBand
-	Additional                 TaxBand
+	Basic                      Band
+	Higher                     Band
+	Additional                 Band
+}
+
+type NationalInsuranceRates struct {
+	Band1 Band
+	Band2 Band
+	Band3 Band
 }
 
 type IncomeTaxBreakdown struct {
-	BasicRate      Money
-	HigherRate     Money
-	AdditionalRate Money
-	Taxable        Money
-	Taxed          Money
+	GrossIncome       Money
+	BasicRate         Money
+	HigherRate        Money
+	AdditionalRate    Money
+	Taxable           Money
+	Taxed             Money
+	NationalInsurance Money
+	TakeHome          Money
 }
 
-func LoadTaxBands() IncomeTaxRates {
-	return IncomeTaxRates{
-		PersonalAllowance:          money.New(12570),
-		PersonalAllowanceThreshold: money.New(100000),
-		Basic: TaxBand{
-			Min:  money.New(12571),
-			Max:  money.New(50270),
-			Rate: 0.2,
-		},
-		Higher: TaxBand{
-			Min:  money.New(50271),
-			Max:  money.New(125140),
-			Rate: 0.4,
-		},
-		Additional: TaxBand{
-			Min:  money.New(125141),
-			Max:  money.New(0),
-			Rate: 0.45,
-		},
-	}
+type TaxCalculator struct {
+	IncomeTaxRates         IncomeTaxRates
+	NationalInsuranceRates map[string]NationalInsuranceRates
 }
 
 // Calculate the National Insurance amount due weekly for Category A.
 // Requirements from https://www.gov.uk/national-insurance-rates-letters
-func CalculateNationalInsurance(weekIncome Money) Money {
-	c := max(weekIncome.Sub(967), 0)
-	b := max((weekIncome - c).Sub(242), 0)
+func (t TaxCalculator) calculateNationalInsurance(weekIncome Money, category string) (Money, error) {
+	cat, ok := t.NationalInsuranceRates[category]
+	if !ok {
+		return 0, fmt.Errorf("the requested %s Category does not exist", category)
+	}
 
-	tax := c.Mul(0.02) + b.Mul(0.1)
+	c := max(weekIncome-cat.Band2.Max, 0)
+	b := max(weekIncome-c-cat.Band1.Max, 0)
 
-	return tax
+	tax := c.Mul(cat.Band3.Rate) + b.Mul(cat.Band2.Rate)
+
+	return tax, nil
 }
 
 // Calculate the Taxable Income of yearly gross income.
 // Requirements from https://www.gov.uk/income-tax-rates
-func CalculateIncomeTax(income Money, allowance Money, tr IncomeTaxRates) IncomeTaxBreakdown {
-	hrLimit := tr.Higher.Min + (allowance - tr.PersonalAllowance)
+func (t TaxCalculator) calculateIncomeTax(income Money, allowance Money) IncomeTaxBreakdown {
+	hrLimit := t.IncomeTaxRates.Higher.Min + (allowance - t.IncomeTaxRates.PersonalAllowance)
 
-	ar := max(income-tr.Additional.Min, 0)
+	ar := max(income-t.IncomeTaxRates.Additional.Min, 0)
 	hr := max(income-ar-hrLimit, 0)
 	br := max(income-ar-hr-allowance, 0)
 
-	tax := ar.Mul(tr.Additional.Rate) + hr.Mul(tr.Higher.Rate) + br.Mul(tr.Basic.Rate)
+	tax := ar.Mul(t.IncomeTaxRates.Additional.Rate) + hr.Mul(t.IncomeTaxRates.Higher.Rate) + br.Mul(t.IncomeTaxRates.Basic.Rate)
 
 	return IncomeTaxBreakdown{
-		BasicRate:      br.Mul(tr.Basic.Rate),
-		HigherRate:     hr.Mul(tr.Higher.Rate),
-		AdditionalRate: ar.Mul(tr.Additional.Rate),
+		GrossIncome:    income,
+		BasicRate:      br.Mul(t.IncomeTaxRates.Basic.Rate),
+		HigherRate:     hr.Mul(t.IncomeTaxRates.Higher.Rate),
+		AdditionalRate: ar.Mul(t.IncomeTaxRates.Additional.Rate),
 		Taxed:          tax,
 		Taxable:        max(income-allowance, 0),
 	}
@@ -83,8 +83,23 @@ func CalculateIncomeTax(income Money, allowance Money, tr IncomeTaxRates) Income
 
 // Calculate the Tax Allowance based on a yearly gross income.
 // Requirements from https://www.gov.uk/income-tax-rates/income-over-100000
-func CalculateTaxAllowance(annumIncome Money, tr IncomeTaxRates) Money {
-	over := max((annumIncome - tr.PersonalAllowanceThreshold).Mul(0.5), 0)
+func (t TaxCalculator) calculateTaxAllowance(annumIncome Money) Money {
+	over := max((annumIncome - t.IncomeTaxRates.PersonalAllowanceThreshold).Mul(0.5), 0)
 
-	return max(tr.PersonalAllowance-over, 0)
+	return max(t.IncomeTaxRates.PersonalAllowance-over, 0)
+}
+
+// Calculate the full income tax and return breakdown.
+func (t TaxCalculator) CalculateTakeHome(income Money, niCategory string) (IncomeTaxBreakdown, error) {
+	allowance := t.calculateTaxAllowance(income)
+	ni, err := t.calculateNationalInsurance(income.Div(52), niCategory)
+	if err != nil {
+		return IncomeTaxBreakdown{}, err
+	}
+	tax := t.calculateIncomeTax(income, allowance)
+
+	tax.NationalInsurance = ni.Mul(52)
+	tax.TakeHome = income - tax.Taxed - tax.NationalInsurance
+
+	return tax, nil
 }

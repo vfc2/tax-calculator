@@ -1,0 +1,19 @@
+{
+    "PersonalAllowance": 12570000000,
+    "PersonalAllowanceThreshold": 100000000000,
+    "Basic": {
+        "Min": 12571000000,
+        "Max": 50270000000,
+        "Rate": 0.2
+    },
+    "Higher": {
+        "Min": 50271000000,
+        "Max": 125140000000,
+        "Rate": 0.4
+    },
+    "Additional": {
+        "Min": 125141000000,
+        "Max": 0,
+        "Rate": 0.45
+    }
+}

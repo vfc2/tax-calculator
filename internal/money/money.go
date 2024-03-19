@@ -9,6 +9,9 @@ package money
 import (
 	"math"
 	"strconv"
+
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 const unit = 1000000
@@ -50,7 +53,7 @@ func NewFromString(amount string) (Money, error) {
 func (m Money) Mul(mul float64) Money {
 	factor := math.RoundToEven(mul * unit)
 
-	return m * Money(factor) / unit
+	return Money(math.RoundToEven(float64(m) * factor / unit))
 }
 
 // Div returns a Money divided by a provided float64.
@@ -73,8 +76,23 @@ func (m Money) Sub(sub float64) Money {
 	return m - Money(v)
 }
 
+// Add returns a Money with a provided float64 added.
+func (m Money) Add(add float64) Money {
+	v := math.RoundToEven(add * unit)
+
+	return m + Money(v)
+}
+
 // Format returns a Money as a string with the specified digits.
 // For example 66498000 with digits = 2 is returned as 66.50.
 func (m Money) Format(digits int) string {
 	return strconv.FormatFloat(float64(m)/unit, 'f', digits, 64)
+}
+
+// DisplayCurrency returns a rounded Money as a string with comma
+// thousands separators.
+func (m Money) DisplayCurrency(sign string) string {
+	p := message.NewPrinter(language.English)
+
+	return p.Sprintf("%s%.0f", sign, float64(m)/unit)
 }

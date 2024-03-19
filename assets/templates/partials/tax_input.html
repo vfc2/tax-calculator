@@ -1,0 +1,19 @@
+{{define "view"}}
+<form hx-post="/calculate">
+
+    <fieldset class="grid">
+
+        <input name="income" type="number" placeholder="Gross income" aria-label="Gross income" required />
+
+        <select name="period" aria-label="Period" required>
+            <option selected>Year</option>
+            <option>Month</option>
+            <option>Week</option>
+          </select>
+        
+    </fieldset>
+
+    <input type="submit" value="Calculate" />
+
+</form>
+{{end}}
