@@ -3,17 +3,31 @@
 
     <fieldset class="grid">
 
-        <input name="income" type="number" placeholder="Gross income" aria-label="Gross income" required />
+        <div>
+            <input name="income" placeholder="Gross income" aria-label="Gross income"
+            {{if .Errors.income}}
+                aria-invalid="true" aria-describedby="invalid-helper"
+            {{end}}
+            required />
 
-        <select name="period" aria-label="Period" required>
-            <option selected>Year</option>
-            <option>Month</option>
-            <option>Week</option>
-          </select>
+            {{with .Errors.income}}
+            <small id="invalid-helper">
+                {{.}}
+            </small>
+            {{end}}
+        </div>
+    
+        <div>
+            <select name="period" aria-label="Period" required>
+                <option selected>Year</option>
+                <option>Month</option>
+                <option>Week</option>
+            </select>
+        </div>
         
     </fieldset>
 
-    <input type="submit" value="Calculate" />
+    <input type="submit" value="Calculate" class="secondary" />
 
 </form>
 {{end}}

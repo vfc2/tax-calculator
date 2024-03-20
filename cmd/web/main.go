@@ -10,15 +10,6 @@ import (
 	"github.com/vfc2/tax-calculator/internal/tax"
 )
 
-type Sub struct {
-	Band1 tax.Band
-	Band2 tax.Band
-	Band3 tax.Band
-}
-
-type Test struct {
-}
-
 func main() {
 	logOptions := &slog.HandlerOptions{
 		Level:     slog.LevelDebug,

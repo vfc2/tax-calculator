@@ -13,6 +13,10 @@ type Handlers struct {
 	models Models
 }
 
+type TaxInputValidation struct {
+	Errors map[string]string
+}
+
 func (h Handlers) home(w http.ResponseWriter, r *http.Request) {
 	h.views.render(w, "home", "layout", nil, h.logger)
 }
@@ -32,7 +36,14 @@ func (h Handlers) outputPage(w http.ResponseWriter, r *http.Request) {
 
 	wage, err := money.NewFromString(income)
 	if err != nil {
-		serverError(w, r, err, h.logger)
+		val := TaxInputValidation{
+			Errors: map[string]string{
+				"income": "The value must be a valid number.",
+			},
+		}
+
+		h.views.render(w, "tax_input", "view", val, h.logger)
+		return
 	}
 
 	switch period {
